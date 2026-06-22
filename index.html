@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>JJ AI Platform</title>
   <style>
     body{margin:0;font-family:system-ui,Arial,sans-serif;background:#0b1020;color:#e9ecff}
@@ -24,52 +24,78 @@
 <body>
   <header>
     <h1>JJ</h1>
-    <p class="subtitle">AI platform (demo placeholder)</p>
+    <p class="subtitle">AI platform (demo fallback; connects to backend if configured)</p>
   </header>
 
   <main>
     <section class="chat">
       <div id="log" class="log" aria-live="polite"></div>
       <form id="form">
-        <input id="msg" autocomplete="off" placeholder="Ask JJ anything..." required/>
+        <input id="msg" autocomplete="off" placeholder="Ask JJ anything..." required />
         <button type="submit">Send</button>
       </form>
-      <div class="smallprint">Demo: responses are generated locally. To enable real AI responses, deploy a backend API and point the script to it.</div>
+      <div class="smallprint">
+        JJ can make mistakes. Don’t share secrets. Backend calls are optional; if no backend is configured, JJ falls back to demo replies.
+      </div>
     </section>
   </main>
 
   <script>
-    const log = document.getElementById('log');
-    const form = document.getElementById('form');
-    const msg = document.getElementById('msg');
+    const API_BASE = window.JJ_API_BASE || "";
+    const log = document.getElementById("log");
+    const form = document.getElementById("form");
+    const msg = document.getElementById("msg");
 
-    function add(text, who){
-      const div = document.createElement('div');
-      div.className = 'bubble ' + who;
+    function add(text, who) {
+      const div = document.createElement("div");
+      div.className = "bubble " + who;
       div.textContent = text;
       log.appendChild(div);
       log.scrollTop = log.scrollHeight;
     }
 
-    async function demoReply(user){
-      // Placeholder. Replace with fetch to your backend, e.g. fetch(BACKEND_URL, { method:'POST', body: JSON.stringify({message:user}) })
-      return `JJ (demo): I heard "${user}". Connect a real AI backend for production.`;
+    async function callBackend(user) {
+      const res = await fetch(`${API_BASE}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: user }),
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!data?.reply) throw new Error("Bad backend response");
+      return data.reply;
     }
 
-    form.addEventListener('submit', async (e)=>{
+    async function demoReply(user) {
+      return `JJ (demo): I heard "${user}". Deploy the backend and set JJ_API_BASE to enable real AI.`;
+    }
+
+    async function getReply(user) {
+      try {
+        return await callBackend(user);
+      } catch {
+        return await demoReply(user);
+      }
+    }
+
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const text = msg.value.trim();
-      if(!text) return;
-      msg.value = '';
-      add(text, 'user');
-      add('…thinking…', 'agent');
+      if (!text) return;
+      msg.value = "";
+      add(text, "user");
+      add("…thinking…", "agent");
       const placeholder = log.lastChild;
-      try{ placeholder.textContent = await demoReply(text); }
-      catch(err){ placeholder.textContent = 'JJ is offline.'; }
+      try {
+        placeholder.textContent = await getReply(text);
+      } catch (err) {
+        placeholder.textContent = "JJ is offline.";
+      }
       msg.focus();
     });
 
-    add('Hello — this is JJ demo running from GitHub Pages.', 'agent');
+    add("Hello — this is JJ. If the backend is deployed, JJ will call it; otherwise this is the demo fallback.", "agent");
   </script>
 </body>
 </html>
